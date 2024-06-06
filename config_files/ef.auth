@@ -1,0 +1,222 @@
+#!/bin/sh
+
+###############################################################################
+################################################################################
+# Copyright 2023-2024 by NI SP Software GmbH, All rights reserved.
+# Copyright 1999-2023 by Nice, srl., All rights reserved.
+#
+# This software includes confidential and proprietary information
+# of  NI SP Software GmbH ("Confidential Information").
+# You shall not disclose such Confidential Information
+# and shall use it only in accordance with the terms of
+# the license agreement you entered into with NI SP Software.
+################################################################################
+################################################################################
+################################################################################
+
+################################################################################
+# SVN $Id$
+################################################################################
+
+################################################################################
+# This script checks the credentials of users with a given PAM service
+#
+# In order to use this authentication script within EnginFrame
+# you should specify authority="pam" in your SDF files.
+#
+# Moreover, you MUST set the PAM service you want to use inside
+#   ${EF_CONF_ROOT}/plugins/pam/ef.auth.conf
+#
+# in this way:
+#   PAM_SERVICE="system-auth"
+#
+# The list of available PAM services can be retrieved by inspecting
+# the directory /etc/pam.d
+#
+# --- Technical Details ---
+# This script accepts username and password on standard input in this format:
+#   username\0password\0
+#
+# Note: the character \0 is the ASCII code 0
+#
+# You can check this script by hand using the printf command.
+# You must set the EF_ROOT variable before doing that:
+#  $ EF_ROOT=/path/to/enginframe
+#  $ export EF_ROOT
+#  $ printf "%s\0%s\0" "username" "password" | /path/to/this/script
+#
+# Its output is a piece of well-formed XML with a "grant" or a "deny" tag:
+#
+#   When credentials are OK, you get a grant message
+#     <?xml version="1.0" encoding="utf-8"?>
+#     <ef:auth xmlns:ef="http://www.enginframe.com/2000/EnginFrame">
+#       <ef:result>
+#         <ef:grant/>
+#       </ef:result>
+#     </ef:auth>
+#
+#   When credentials are WRONG, you get a deny message
+#     <?xml version="1.0" encoding="utf-8"?>
+#     <ef:auth xmlns:ef="http://www.enginframe.com/2000/EnginFrame">
+#       <ef:result>
+#         <ef:deny/>
+#       </ef:result>
+#     </ef:auth>
+################################################################################
+
+#-------------------------------------------------------------------------------
+# Library of common functions
+#-------------------------------------------------------------------------------
+# This library define three functions:
+#  1) efauth_init    - initialization
+#  2) efauth_mapping - user mapping
+#  3) efauth_result  - prints out the XML response
+EFAUTH_LIB="${EF_ROOT}/plugins/ef/bin/ef.auth.common"
+
+#-------------------------------------------------------------------------------
+# Source common library
+#-------------------------------------------------------------------------------
+if [ -f "${EFAUTH_LIB}" \
+  -a -r "${EFAUTH_LIB}" ] ; then
+  . "${EFAUTH_LIB}"
+else
+  cat <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<ef:auth xmlns:ef="http://www.enginframe.com/2000/EnginFrame">
+  <ef:result>
+    <ef:deny/>
+  </ef:result>
+  <ef:error>
+    <ef:message><![CDATA[Unable to read common library ${EFAUTH_LIB}]]></ef:message>
+  </ef:error>
+</ef:auth>
+EOF
+  exit 1
+fi
+
+#-------------------------------------------------------------------------------
+# standard ef.auth initialization
+#-------------------------------------------------------------------------------
+efauth_init
+export PAM_SERVICE
+
+#-------------------------------------------------------------------------------
+# specific ef.auth initialization
+#-------------------------------------------------------------------------------
+# uncomment the below line if you want to debug this script. Every new session will create a unique /tmp/ef.auth.debug.log.[0-9] file where you can check the code execution
+# exec 2>"/tmp/ef.auth.debug.log.$$";set -x
+decrypt() {
+    local data="$1"
+    local key_hex="$2"
+    local nonce_hex="$3"
+
+    # Decrypt using openssl
+    local decrypted_data=$(echo -n "$data" | openssl enc -aes-128-ctr -d -K "$key_hex" -iv "$nonce_hex" -nosalt -base64 -A)
+
+    echo "$decrypted_data"
+}
+
+add_padding() {
+  local len=$(( ${#1} % 4 ))
+  if [ $len -eq 2 ]; then
+    echo "$1"'=='
+  elif [ $len -eq 3 ]; then
+    echo "$1"'='
+  else
+    echo "$1"
+  fi
+}
+
+_username="${EF_USER}"
+_thestdin=$(cat 5<&0)
+_thepassword="${_thestdin#$_username}"
+key="##EFAUTHSECRETKEY##"
+nonce="##EFAUTHNONCE##"
+auth_type="##AUTHTYPE##"
+encryptedUser=$_username
+decryptedUser=$(decrypt "$encryptedUser" "$key" "$nonce")
+encryptedPassword=$_thepassword
+_thepassword=$(decrypt "$encryptedPassword" "$key" "$nonce")
+_username=$(echo $decryptedUser | cut -d";" -f1)
+_date=$(echo $decryptedUser | cut -d";" -f2)
+datetime_epoch=$(date -u -d "$_date" +%s)
+current_epoch=$(date -u +%s)
+
+#-------------------------------------------------------------------------------
+# checking credentials
+#-------------------------------------------------------------------------------
+if [ $((current_epoch - datetime_epoch)) -gt 60 ]
+then
+    efauth_result "deny" "username or password is wrong"
+    exit 3
+fi
+
+# Check if the user really exists
+if [ ! "${EFAUTH_USERMAPPING}" = "true" ] ; then
+  id "${_username}" >"/dev/null" 2>&1
+  if [ ! "$?" = "0" ] ; then
+    efauth_result "deny" "username or password is wrong"
+    exit 1
+  fi
+fi
+
+# if "custom" is the authentication type
+if [[ "$auth_type" == "custom" ]]
+then
+    _result=0
+  
+# if "entraidtoken" is the authentication type
+else
+  # check if the token issue life is less than 120 seconds
+  entraid_payload=$(echo "$_thepassword" | cut -d "." -f2)
+
+  # Add padding to the payload
+  entraid_payload=$(add_padding "$entraid_payload")
+
+  entraid_payload_decoded=$(echo "$entraid_payload" | base64 --decode --ignore-garbage)
+  entraid_issued_at=$(echo "$entraid_payload_decoded" | grep -o '"iat":[0-9]*' | sed 's/"iat"://')
+  current_time=$(date +%s)
+  entraid_token_age=$((current_time - entraid_issued_at))
+  if [ "$entraid_token_age" -lt 3600 ]
+  then
+    # then check if the token is still valid
+    entraid_validation_endpoint="https://graph.microsoft.com/v1.0/me"
+    entraid_response=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $_thepassword" $entraid_validation_endpoint)
+    entraid_response_code=$(echo "$entraid_response" | tail -n1)
+    if [ "$entraid_response_code" -eq 200 ]
+    then
+      _result=0
+    else
+      _result=1
+    fi
+  else
+    _result=1
+  fi
+fi
+
+#-------------------------------------------------------------------------------
+# If not authenticated, deny
+#-------------------------------------------------------------------------------
+if [ ! "${_result}" = "0" ] ; then
+  efauth_result "deny" "username or password is wrong"
+  exit 1
+fi
+
+#-------------------------------------------------------------------------------
+# user mapping
+#-------------------------------------------------------------------------------
+if [ "${EFAUTH_USERMAPPING}" = "true" ] ; then
+  _mapping=`efauth_mapping "${_username}"`
+fi
+
+# Recalculate exit code
+_result="$?"
+
+#-------------------------------------------------------------------------------
+# final grant message
+#-------------------------------------------------------------------------------
+if [ "${_result}" = "0" ] ; then
+  efauth_result "grant" "${_mapping}"
+else
+  efauth_result "deny" "user mapping failed [error code: ${_result}]"
+fi
