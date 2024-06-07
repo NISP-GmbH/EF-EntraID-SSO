@@ -9,4 +9,4 @@
 ##EFENDPOINT## subdomain.domain.com
 ##EFAUTHSECRETKEY## 3efa91c3b159038633b73e76c0fe9a0c
 ##EFAUTHNONCE## a761dd69a1a8e96254bce02dad5bf754
-##AUTHTYPE## custom
+##AUTHTYPE## entraidtoken
