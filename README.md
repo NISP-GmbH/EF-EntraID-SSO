@@ -68,7 +68,8 @@ Currently just Apache is supported. The Apache needs to have installed:
 1. Install and start the Apache service with PHP 7.4+ (required)
 2. Copy the files config_files/entraid-ssl.conf to /etc/httpd/conf.d/ Apache directory.
 3. Edit the copied entraid-ssl.conf file and check if ProxyPass and ProxyPassReverse are correctly pointing to EnginFrame endpoint
-4. Restart the Apache service
+4. Set chmod 640 for entraid-ssl.conf
+5. Restart the Apache service
 
 Notes:
 - Double check the right SSL config for SSLCertificateFile and SSLCertificateKeyFile
@@ -94,21 +95,8 @@ ef.filter.csrf.targetOrigins=https://subdomain.domain.com:8443, https://subdomai
 ```bash
 EFAUTH_USERMAPPING="true"
 ```
-## (5) Create the private key and nonce files
 
-To create the private key code:
-```bash
-openssl rand -hex 16
-```
-
-To create the nonce code:
-```bash
-openssl rand -hex 16
-```
-
-Now you can copy and replace ##EFAUTHSECRETKEY## and ##EFAUTHNONCE## strings in the replacements_custom.txt files
-
-## (6) Replace the EnginFrame ef.auth file
+## (5) Replace the EnginFrame ef.auth file
 
 Copy the file config_file/ef.auth to replace your working ef.auth file.
 
@@ -121,9 +109,10 @@ cp /opt/nisp/enginframe/2024.0-r1705/enginframe/plugins/pam/bin/ef.auth /opt/nis
 2. Replace:
 ```bash
 cp -f config_file/ef.auth /opt/nisp/enginframe/2024.0-r1705/enginframe/plugins/pam/bin/ef.auth
+chmod 640 /opt/nisp/enginframe/2024.0-r1705/enginframe/plugins/pam/bin/ef.auth
 ```
 
-## (7) Create the Microsoft Entra ID App
+## (6) Create the Microsoft Entra ID App
 
 1. Enter in the Microsoft Entra ID center dashboard
 2. Click in Applications
@@ -142,7 +131,7 @@ cp -f config_file/ef.auth /opt/nisp/enginframe/2024.0-r1705/enginframe/plugins/p
 
 Now you have an APP and the credentials to access Entra ID Directory, so you are able to fill all replacements_custom.txt string.
 
-## (8) Mapping the users
+## (7) Mapping the users
 
 You need to create a file called ef.user.mapping that usually is stored in a path like this: /opt/nisp/enginframe/2024.0-r1705/enginframe/plugins/pam/bin/ef.user.mapping
 
@@ -171,7 +160,7 @@ echo "efadmin"
 
 Important: Make sure the file has root:root with execution permissions.
 
-## (9) Edit secure_page.php to send the right User info
+## (8) Edit secure_page.php to send the right User info
 
 In the step 8 you did a script that will map the Entra ID information to a Linux user. In the secure_page.php you need to set which Entra ID information do you want to sent to EnginFrame. Please open the file and check the ef_user variable. By default, we send the userInfo['id'] from Entra ID, but you can change that in the code.
 
