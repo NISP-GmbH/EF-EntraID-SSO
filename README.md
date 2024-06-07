@@ -10,7 +10,7 @@ Suppose that your auth domain will be domain.com/auth and the sso php files will
 4. The callback.php file will exchange the authorization code to the access token (flow ref: https://youtu.be/2RE6IhXfmHY?si=zvFZFAfNaa7fFlJh&t=123 )
 5. With the accessToken, secure_page.php will be called to start EnginFrame login procedure
 6. The EnginFrame will receive the login and password sent by secure_page.php. The login will be the credentials that you configured. By default is the ID of Entra ID user. The password will be the Entra ID Access Token.
-7. Using the ef.auth file from EnginFrame pam plugin, EnginFrame will validate the login (when _result =0) and map the user according ef.user.mapping script. This validation can happen in two ways: Just accepting the mapped user ("custom" auth type) or doing one more Entra ID call to validate the Access Token ("entraidtoken" auth type).
+7. Using the ef.auth file from EnginFrame pam plugin, EnginFrame will validate the login (when _result =0) and map the user according ef.user.mapping script. This validation can happen in two ways: Just accepting the mapped user ("custom" auth type) or doing one more Entra ID call to validate the Access Token ("entraidtoken" auth type). The "entraidtoken" option is the default one and we recommend that option.
 8. If the credentials are validated and if ef.user.mapping can map the user, EnginFrame will open the dashboard home.
 
 # To setup EnginFrame with Entra ID
