@@ -23,8 +23,8 @@ Suppose that your auth domain will be domain.com/auth and the sso php files will
 - SSL Certificates
 
 Notes:
-- Is recommended to use some Linux distro that is not close to End of Life date
-- Is recommended to use PHP 8.0+ version; 7.2+ will work, but there is no official security updates anymore
+- It is recommended to use some Linux distro that is not close to End of Life date
+- It is recommended to use PHP 8.0+ version; 7.2+ will work, but there is no official security updates anymore
 
 ## (1) Replace the ##*## strings
 
