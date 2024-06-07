@@ -176,21 +176,30 @@ else
   entraid_issued_at=$(echo "$entraid_payload_decoded" | grep -o '"iat":[0-9]*' | sed 's/"iat"://')
   current_time=$(date +%s)
   entraid_token_age=$((current_time - entraid_issued_at))
-  if [ "$entraid_token_age" -lt 3600 ]
+
+  if [ "$entraid_token_age" -lt 360 ]
   then
     # then check if the token is still valid
     entraid_validation_endpoint="https://graph.microsoft.com/v1.0/me"
-    entraid_response=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $_thepassword" $entraid_validation_endpoint)
-    entraid_response_code=$(echo "$entraid_response" | tail -n1)
-    if [ "$entraid_response_code" -eq 200 ]
+    entraid_response=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $_thepassword" $entraid_validation_endpoint)
+    http_body=$(echo "$entraid_response" | sed '$ d')
+    http_code=$(echo "$entraid_response" | tail -n1)
+    entra_user_id=$(echo "$http_body" | grep -o '"id": *"[^"]*' | grep -o '[^"]*$')
+    if [ $http_code -eq 200 ]
     then
-      _result=0
+      if [[ "${_username}" ==  "${entra_user_id}" ]]
+      then
+        _result=0
+      else
+        _result=1
+      fi
     else
       _result=1
     fi
   else
     _result=1
   fi
+
 fi
 
 #-------------------------------------------------------------------------------
