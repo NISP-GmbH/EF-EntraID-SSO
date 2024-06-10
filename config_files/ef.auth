@@ -126,15 +126,29 @@ add_padding() {
   fi
 }
 
+expected_chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
 _username="${EF_USER}"
 _thestdin=$(cat 5<&0)
 _thepassword="${_thestdin#$_username}"
+encryptedUser=$_username
+encryptedPassword=$_thepassword
+
+if [[ "$encryptedUser" =~ [^$expected_chars]+ ]]
+then
+  efauth_result "deny" "username or password is wrong"
+  exit 4
+fi
+
+if [[ "$encryptedPassword" =~ [^$expected_chars]+ ]]
+then
+  efauth_result "deny" "username or password is wrong"
+  exit 5
+fi
+
 key="##EFAUTHSECRETKEY##"
 nonce="##EFAUTHNONCE##"
 auth_type="##AUTHTYPE##" # if "custom", just the user will be checked. if "entraidtoken", then ef.auth will do one more request to Entra ID to validate the Access Token
-encryptedUser=$_username
 decryptedUser=$(decrypt "$encryptedUser" "$key" "$nonce")
-encryptedPassword=$_thepassword
 _thepassword=$(decrypt "$encryptedPassword" "$key" "$nonce")
 _username=$(echo $decryptedUser | cut -d";" -f1)
 _date=$(echo $decryptedUser | cut -d";" -f2)
