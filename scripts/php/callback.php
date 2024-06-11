@@ -13,7 +13,7 @@ if (isset($_GET['code'])) {
   $code = $_GET['code'];
 
 $allowedChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.-';
-$allowedLength = 600;
+$allowedLength = 1000;
 
 if (preg_match($allowedChars, $code) || strlen($code) > $allowedLength)
 {
