@@ -12,6 +12,16 @@ $tenantId = '##YOURTENANTID##';
 if (isset($_GET['code'])) {
   $code = $_GET['code'];
 
+$allowedChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.-';
+$allowedLength = 600;
+
+if (preg_match($allowedChars, $code) || strlen($code) > $allowedLength)
+{
+  // Input is invalid, handle the error
+  echo "Invalid input.";
+  die();
+}
+
   // Exchange the authorization code for an access token
   $tokenUrl = "https://login.microsoftonline.com/##YOURTENANTID##/oauth2/v2.0/token";
 
