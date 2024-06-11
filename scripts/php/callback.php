@@ -53,7 +53,7 @@ if (preg_match($allowedChars, $code) || strlen($code) > $allowedLength)
     $_SESSION['access_token'] = $responseData['access_token'];
     $_SESSION['id_token'] = $responseData['id_token'];
     $_SESSION['refresh_token'] = $responseData['refresh_token'];
-
+    $_SESSION['secure_page_token'] = '##EFAUTHNONCE##';
     // Redirect to a secure page or perform other actions
     header('Location: secure_page.php');
     exit();

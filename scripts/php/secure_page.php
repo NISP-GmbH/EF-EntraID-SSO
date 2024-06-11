@@ -20,8 +20,17 @@ $allowedLengthIdToken = 1020;
 if (preg_match($allowedChars, $idToken) || preg_match($allowedChars, $accessToken) || strlen($idToken) > $allowedLengthIdToken || strlen($accessToken) > $allowedLengthAccessToken)
 {
   // Input is invalid, handle the error
-  echo "Invalid input.";
-  die();
+  die('Invalid input.');
+}
+
+$expected_token = '##EFAUTHNONCE##';
+if ( isset($_SESSION['secure_page_token']) && $_SESSION['secure_page_token'] === $expected_token )
+{
+  unset($_SESSION['secure_page_token']);
+}
+else
+{
+  die('Invalid input.');
 }
 
 echo '<h1>Secure Page</h1>';
