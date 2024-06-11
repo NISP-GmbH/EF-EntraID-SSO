@@ -13,6 +13,17 @@ if (!isset($_SESSION['access_token'])) {
 $idToken = $_SESSION['id_token'];
 $accessToken = $_SESSION['access_token'];
 
+$allowedChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.-';
+$allowedLengthAccessToken = 2350;
+$allowedLengthIdToken = 1020;
+
+if (preg_match($allowedChars, $idToken) || preg_match($allowedChars, $accessToken) || strlen($idToken) > $allowedLengthIdToken || strlen($accessToken) > $allowedLengthAccessToken)
+{
+  // Input is invalid, handle the error
+  echo "Invalid input.";
+  die();
+}
+
 echo '<h1>Secure Page</h1>';
 echo '<p>You are authenticated.';
 
