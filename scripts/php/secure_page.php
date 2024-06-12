@@ -14,8 +14,8 @@ $idToken = $_SESSION['id_token'];
 $accessToken = $_SESSION['access_token'];
 
 $allowedChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.-';
-$allowedLengthAccessToken = 2350;
-$allowedLengthIdToken = 1020;
+$allowedLengthAccessToken = 2500;
+$allowedLengthIdToken = 1100;
 
 if (preg_match($allowedChars, $idToken) || preg_match($allowedChars, $accessToken) || strlen($idToken) > $allowedLengthIdToken || strlen($accessToken) > $allowedLengthAccessToken)
 {
