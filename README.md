@@ -9,8 +9,8 @@ Suppose that your auth domain will be domain.com/auth and the sso php files will
 3. The Entra ID will redirect the user to domain.com/sso/callback.php with the authorization code
 4. The callback.php file will exchange the authorization code to the access token (flow ref: https://youtu.be/2RE6IhXfmHY?si=zvFZFAfNaa7fFlJh&t=123 )
 5. With the accessToken, secure_page.php will be called to start EnginFrame login procedure
-6. The EnginFrame will receive the login and password sent by secure_page.php. The login will be the credentials that you configured. By default is the ID of Entra ID user. The password will be the Entra ID Access Token.
-7. Using the ef.auth file from EnginFrame pam plugin, EnginFrame will validate the login (when _result =0) and map the user according ef.user.mapping script. This validation can happen in two ways: Just accepting the mapped user ("custom" auth type) or doing one more Entra ID call to validate the Access Token ("entraidtoken" auth type). The "entraidtoken" option is the default one and we recommend that option.
+6. The EnginFrame will receive the login and password sent by secure_page.php. The login will be the credentials that you configured. They can be encrypted or not (and EF Portal can decrypt or not). By default the username is the ID of Entra ID user. The password will be the Entra ID Access Token.
+7. Using the ef.auth file from EnginFrame PAM plugin, EnginFrame will validate the login (when _result =0) and map the user according ef.user.mapping script. This validation can happen in two ways: Just accepting the mapped user ("custom" auth type) or doing one more Entra ID call to validate the Access Token ("entraidtoken" auth type). The "entraidtoken" option is the default one and we recommend that option. 
 8. If the credentials are validated and if ef.user.mapping can map the user, EnginFrame will open the dashboard home.
 
 # To setup EnginFrame with Entra ID
@@ -28,7 +28,7 @@ Notes:
 
 ## (1) Replace the ##*## strings
 
-This step was created to make easier to configure all files editing just one file and executing one script. You can also replace everything manually.
+This step was created to make easier to configure all files editing just one file. You can also replace everything manually, if you know what you are doing.
 
 In the file replacements.txt you will find all strings that you need to replace for real values. Copy this file as replacements_custom.txt and replace all data. The string to be replaced and the real value is separated by a space, one per line. For example: ##STRINGTOBECHANGED## MYNEWSTRING or ##MYURL## mydomain.com
 
@@ -43,20 +43,25 @@ git reset --hard HEAD^
 Fix what was wrong in the replacements_custom.txt and execute the script again to replace all strings. The git reset will not remove your replacements_custom.txt.
 
 Here are the strings descriptions that you have to replace:
-- ##ADMINEMAIL## : The apache2 sysadmin email
-- ##HOSTNAME## : The domain that will be used to setup this integration. Example: subdomain.domain.com (without http/https syntax; https is mandatory and will be automatically added)
+- ##ADMINEMAIL## : The apache2 sysadmin email. Example: nisp@ni-sp.com
+- ##HOSTNAME## : The domain that will be used to setup this integration. Example: subdomain.domain.com (without http/https syntax; https is mandatory and will be automatically added). This domain will be used to access the EF Portal through SSO.
 - ##YOURTENANTID## : Tenant ID to access your Entra ID Directory
 - ##YOURAPPID## : The App Client ID (created in Microsoft Entra ID center)
 - ##YOURAPPSECRET## : The App Secret (created in Microsoft Entra ID center)
-- ##YOURAPPCLIENTVALUE## : The App Value (not Secret ID)
-- ##SSOLOGIN## : If you want the users doing the login in subdomain.domain.com/auth, replace with "auth", without the double quotes. Example: auth
-- ##PHPCALLBACKPATH## : The path of the php files. Example: if is "sso", then the callback.php file will be in subdomain.domain.com/sso/callback.php. Examples: sso or sso/api or api. Do not add the "/" in the end. If you add, the script will remove.
-- ##EFENDPOINT## : the EnginFrame endpoint. Examples: subdomain.domain.com:8443, subdomain.domain.com etc; Do not add http/https, https is mandatory and will be automatically added
+- ##OIDCCRYPTOPASSPHRASE## : A strong string (more than 16 characters) that will be used to protect sensitive data inside of the mod_auth_openidc 
+- ##SSOLOGIN## : If you want the users doing the login in subdomain.domain.com/auth, replace with "auth", without the double quotes. Example: auth. This means that the users that want to login into EF Portal will need to type subdomain.domain.com/auth.
+- ##PHPCALLBACKPATH## : The path of the php files. Example: if is "sso", then the callback.php file will be in subdomain.domain.com/sso/callback.php. Examples: sso. Do not add the "/" in the end. If you add, the script will remove.
+- ##EFENDPOINT## : the EnginFrame endpoint. Examples: subdomain.domain.com:8443, subdomain.domain.com etc; Do not add http/https, https is mandatory and will be automatically added. The domain does not need to be public. In that case, adjust the /etc/hosts to resolve the EF Portal domain. This will be used to proxy from Apache (443 https port) to EF Portal Tomcat server (8443 https port).
 - ##AUTHTYPE## : Options: entraidtoken or custom. "entraidtoken" means that the EnginFrame password will be the Entra ID Token, which will be validated (again) by EnginFrame. "custom" means that both user and password will be checked in the same way (PAM, LDAP etc).
+
+Finally, execute the script that will read replacements_custom.txt and configure all files:
+```bash
+bash replace_strings.sh
+```
 
 Notes:
 - The ##SSOLOGIN## (used for entra id auth) needs to be different of ##PHPCALLBACKPATH##, so make sure of that to avoid problems
-- The replacements.txt file already come with one example per string
+- The replacements.txt file already come with one example per string, but remember that just replacements_custom.txt will be used.
 - Make sure that ##EFENDPOINT## has a valid certificate, or you will have problems with EnginFrame login; If you intend to use self signed certificate, use the Apache subdomain configured to do ProxyPass to your EnginFrame (check your apache conf file)
 
 ## (2) Apache setup
@@ -91,6 +96,13 @@ ef.filter.csrf.allowAccessWithNoOrigin=true
 ef.filter.csrf.targetOrigins=https://subdomain.domain.com:8443, https://subdomain.domain.com
 ```
 
+Maybe you will also need to set:
+```bash
+ef.filter.csrf.sameOriginCheck=false
+```
+
+depending of your customizations, but most of the cases  ef.filter.csrf.targetOrigins configuration is enough.
+
 2. Edit the ef.auth.conf (/opt/*/enginframe/*/enginframe/plugins/pam/conf/ef.auth.conf) to set this config:
 ```bash
 EFAUTH_USERMAPPING="true"
@@ -112,7 +124,38 @@ cp -f config_file/ef.auth /opt/nisp/enginframe/2024.0-r1705/enginframe/plugins/p
 chmod 640 /opt/nisp/enginframe/2024.0-r1705/enginframe/plugins/pam/bin/ef.auth
 ```
 
-## (6) Create the Microsoft Entra ID App
+Note: You need to replace 2024.0-r1705 to the version that you are using.
+
+## (6) Encrypt / Decrypt data between Apache and EF Portal
+
+By default, the secure_page.php will encrypt the username, but not the password. And after this processing, the credentials will be sent to EF Portal.
+
+You can send both data encrypted, both data not encrypted or a mix. This is not mandatory and will depend of your needs.
+
+Just make sure that if you encrypt something in secure_page.php, you need to decrypt in the ef.auth file. You can check both files and see some examples. Is easy to change.
+
+If you encrypt the username, when logged you will see the message "Welcome, the_username_encrypted".
+
+You can fix that editing the file:
+```bash
+/opt/nisp/enginframe/2024.0-r1705/enginframe/plugins/themes/lib/xsl/nice-jump/layout.templates.xsl
+```
+
+in the line 93, replacing 
+
+```bash
+<xsl:variable name="nj_login_name" select="//ef:profile/ef:login-name/."/>
+```
+
+to
+
+```bash
+<xsl:variable name="nj_login_name" select="//ef:profile/ef:user/."/>
+```
+
+No service restart is required.
+
+## (7) Create the Microsoft Entra ID App
 
 1. Enter in the Microsoft Entra ID center dashboard
 2. Click in Applications
@@ -131,12 +174,12 @@ chmod 640 /opt/nisp/enginframe/2024.0-r1705/enginframe/plugins/pam/bin/ef.auth
 
 Now you have an APP and the credentials to access Entra ID Directory, so you are able to fill all replacements_custom.txt string.
 
-## (7) Mapping the users
+## (6) Mapping the users
 
 You need to create a file called ef.user.mapping that usually is stored in a path like this: /opt/nisp/enginframe/2024.0-r1705/enginframe/plugins/pam/bin/ef.user.mapping
 
-Here is one example of user mapping
-:
+Here is one example of user mapping:
+
 ```bash
 #!/bin/bash
 
@@ -160,7 +203,7 @@ echo "efadmin"
 
 Important: Make sure the file has root:root with execution permissions.
 
-## (8) Edit secure_page.php to send the right User info
+## (9) Edit secure_page.php to send the right User info
 
 In the step 8 you did a script that will map the Entra ID information to a Linux user. In the secure_page.php you need to set which Entra ID information do you want to sent to EnginFrame. Please open the file and check the ef_user variable. By default, we send the userInfo['id'] from Entra ID, but you can change that in the code.
 
