@@ -87,21 +87,34 @@ There are some php files that you need to setup.
 1. Enter in the directory that you want to setup the php files. Suppose that will be /var/www/html/sso/.
 2. Copy the files scripts/php/* to the same directory.
 
+Note:
+
+By default we apply these Access Token and ID Token lenght, and allowed chars, in the secure_page.php file:
+```php
+$allowedChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.-';
+$allowedLengthAccessToken = 2500;
+$allowedLengthIdToken = 1100;
+```
+
+These values can be customizable without problem. It just add more restrictions to improve the security.
+
 ## (4) Configure EnginFrame settings
 
 1. Edit the server.conf file (/opt/DIR/enginframe/DIR/enginframe/conf/server.conf) to set this config:
 ```bash
 ef.filter.csrf.tokenCheck=false
 ef.filter.csrf.allowAccessWithNoOrigin=true
-ef.filter.csrf.targetOrigins=https://subdomain.domain.com:8443, https://subdomain.domain.com
+ef.filter.csrf.targetOrigins=https://subdomain.domain.com
 ```
+
+The "https://subdomain.domain.com/" is the domain used to access your SSO.
 
 Maybe you will also need to set:
 ```bash
 ef.filter.csrf.sameOriginCheck=false
 ```
 
-depending of your customizations, but most of the cases  ef.filter.csrf.targetOrigins configuration is enough.
+depending of your requirements, but most of the cases ef.filter.csrf.targetOrigins configuration is enough. 
 
 2. Edit the ef.auth.conf (/opt/*/enginframe/*/enginframe/plugins/pam/conf/ef.auth.conf) to set this config:
 ```bash
