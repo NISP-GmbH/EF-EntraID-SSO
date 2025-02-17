@@ -4,7 +4,7 @@ session_start();
 
 // Configuration variables
 $clientId = '##YOURAPPID##';
-$clientSecret = '##YOURAPPCLIENTVALUE##';
+$clientSecret = '##YOURAPPSECRET##';
 $redirectUri = 'https://##HOSTNAME##/##PHPCALLBACKPATH##/callback.php';
 $tenantId = '##YOURTENANTID##';
 
