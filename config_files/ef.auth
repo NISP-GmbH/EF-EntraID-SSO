@@ -130,7 +130,7 @@ _username="${EF_USER}"
 _thestdin=$(cat 5<&0)
 _thepassword="${_thestdin#$_username}"
 encryptedUser=$_username
-encryptedPassword=$_thepassword
+#encryptedPassword=$_thepassword
 
 if [[ "$encryptedUser" =~ [^$expected_chars]+ ]]
 then
@@ -148,7 +148,7 @@ key="##EFAUTHSECRETKEY##"
 nonce="##EFAUTHNONCE##"
 auth_type="##AUTHTYPE##" # if "custom", just the user will be checked. if "entraidtoken", then ef.auth will do one more request to Entra ID to validate the Access Token
 decryptedUser=$(decrypt "$encryptedUser" "$key" "$nonce")
-_thepassword=$(decrypt "$encryptedPassword" "$key" "$nonce")
+#_thepassword=$(decrypt "$encryptedPassword" "$key" "$nonce")
 _username=$(echo $decryptedUser | cut -d";" -f1)
 _date=$(echo $decryptedUser | cut -d";" -f2)
 datetime_epoch=$(date -u -d "$_date" +%s)
