@@ -1,17 +1,45 @@
 # EnginFrame + EntraID + SSO
 
+Here you can find a simple way to implement Entra ID SSO with EF Portal.
+
+The basic configuration is enough to get it working, but probably you have different rules in your company; May you need to use different usernames or send extra info to EF Portal. Feel free to customize your code.
+
+We did it using Apache, PHP and bash script, because is easy to understand and modify as you do not need deep knowledge.
+
+Probably you already saw that are a lot of text to read, but do not worry! We wrote a lot of examples and tips to help you, so take a bottle of water and let's start!
+
 # General Flow
 
-Suppose that your auth domain will be domain.com/auth and the sso php files will be in domain.com/sso
+Suppose that your auth domain will be subodmain.domain.com/auth and the SSO php files will be in subdomain.domain.com/sso ("subdomain" is just an example, you can use just the "domain.com").
 
-1. The user will enter in the domain.com/auth to start the authentication
-2. The user will be redirected to Microsoft Entra ID login
-3. The Entra ID will redirect the user to domain.com/sso/callback.php with the authorization code
-4. The callback.php file will exchange the authorization code to the access token (flow ref: https://youtu.be/2RE6IhXfmHY?si=zvFZFAfNaa7fFlJh&t=123 )
+1. The user will enter in the subdomain.domain.com/auth to start the authentication. Example: efportal.ni-sp.com/auth
+2. The user will be redirected to Microsoft Entra ID login (that is configured with the callback url: subdomain.domain.com/sso/callback.php)
+3. The Entra ID will redirect the user to subdomain.domain.com/sso/callback.php with the authorization code. Example: efportal.ni-sp.com/sso/callback.php
+4. The callback.php file will exchange the authorization code to the access token (Microsoft Authentication fundaments ref: https://youtu.be/2RE6IhXfmHY?si=zvFZFAfNaa7fFlJh&t=123 )
 5. With the accessToken, secure_page.php will be called to start EnginFrame login procedure
-6. The EnginFrame will receive the login and password sent by secure_page.php. The login will be the credentials that you configured. They can be encrypted or not (and EF Portal can decrypt or not). By default the username is the ID of Entra ID user. The password will be the Entra ID Access Token.
-7. Using the ef.auth file from EnginFrame PAM plugin, EnginFrame will validate the login (when _result =0) and map the user according ef.user.mapping script. This validation can happen in two ways: Just accepting the mapped user ("custom" auth type) or doing one more Entra ID call to validate the Access Token ("entraidtoken" auth type). The "entraidtoken" option is the default one and we recommend that option. 
+6. The EnginFrame will receive the login and password sent by secure_page.php. The login will be the credentials that you configured (you can customize, or just use the default in the current code). They can be encrypted or not before send to EF Portal. By default the username is the ID of Entra ID user. The password will be the Entra ID Access Token.
+7. Using the ef.auth file from EnginFrame PAM plugin, EnginFrame will validate the login (when _result =0) and map the Entra ID user to a local user, according ef.user.mapping script. This ef.auth validation can happen in two ways: Just accepting the mapped user ("custom" auth type) or doing one more Entra ID call to validate the Access Token ("entraidtoken" auth type). The "entraidtoken" option is the default one and we recommend that option. 
 8. If the credentials are validated and if ef.user.mapping can map the user, EnginFrame will open the dashboard home.
+
+# About domains and subdirectories
+
+By default, we expect at least one domain to be configured:
+- One domain to start the authentication: efportal.ni-sp.com/auth
+- Same domain to receive the access token: efportal.ni-sp.com/sso/callback.php
+- A domain to talk with EF Portal (secure_page.php <-> EF Portal Tomcat server). The domain of EF Portal endpoint can use:
+1. Same domain used before, but using different port (efportal.ni-sp.com:8443)
+2. A different domain, like endpoint.efportal.ni-sp.com, that points to EF Portal Tomcat service
+3. An invalid domain, like efportal.endpoint.localhost, but then you need to configure /etc/hosts to force the domain name resolution
+
+You can modify this as you want. You just need to make sure that secure_page.php can talk with EF Portal Tomcat service.
+
+About subdirectories: /auth, /sso etc:
+
+By default, we expect:
+- /auth will be used in Apache to start the authentication
+- /sso/ will be used to store all php files that will ask the authorization code, get the access token and open the EF Portal dashboard
+
+You can modify this as you want. You just need to make sure that in your EntraID App configuration, it can call the callback URL.
 
 # To setup EnginFrame with Entra ID
 
@@ -43,7 +71,7 @@ git reset --hard HEAD^
 Fix what was wrong in the replacements_custom.txt and execute the script again to replace all strings. The git reset will not remove your replacements_custom.txt.
 
 Here are the strings descriptions that you have to replace:
-- ##ADMINEMAIL## : The apache2 sysadmin email. Example: nisp@ni-sp.com
+- ##ADMINEMAIL## : The apache2 sysadmin email. Example: admin@ni-sp.com
 - ##HOSTNAME## : The domain that will be used to setup this integration. Example: subdomain.domain.com (without http/https syntax; https is mandatory and will be automatically added). This domain will be used to access the EF Portal through SSO.
 - ##YOURTENANTID## : Tenant ID to access your Entra ID Directory
 - ##YOURAPPID## : The App Client ID (created in Microsoft Entra ID center)
@@ -51,7 +79,7 @@ Here are the strings descriptions that you have to replace:
 - ##OIDCCRYPTOPASSPHRASE## : A strong string (more than 16 characters) that will be used to protect sensitive data inside of the mod_auth_openidc 
 - ##SSOLOGIN## : If you want the users doing the login in subdomain.domain.com/auth, replace with "auth", without the double quotes. Example: auth. This means that the users that want to login into EF Portal will need to type subdomain.domain.com/auth.
 - ##PHPCALLBACKPATH## : The path of the php files. Example: if is "sso", then the callback.php file will be in subdomain.domain.com/sso/callback.php. Examples: sso. Do not add the "/" in the end. If you add, the script will remove.
-- ##EFENDPOINT## : the EnginFrame endpoint. Examples: subdomain.domain.com:8443, subdomain.domain.com etc; Do not add http/https, https is mandatory and will be automatically added. The domain does not need to be public. In that case, adjust the /etc/hosts to resolve the EF Portal domain. This will be used to proxy from Apache (443 https port) to EF Portal Tomcat server (8443 https port).
+- ##EFENDPOINT## : the EnginFrame endpoint. Example: subdomain.domain.com:8443; Do not add http/https, https is mandatory and will be automatically added. The domain does not need to be public. In that case, adjust the /etc/hosts to resolve the EF Portal domain. This will be used to proxy from Apache to EF Portal Tomcat server (8443 https port).
 - ##AUTHTYPE## : Options: entraidtoken or custom. "entraidtoken" means that the EnginFrame password will be the Entra ID Token, which will be validated (again) by EnginFrame. "custom" means that both user and password will be checked in the same way (PAM, LDAP etc).
 
 Finally, execute the script that will read replacements_custom.txt and configure all files:
@@ -107,7 +135,7 @@ ef.filter.csrf.allowAccessWithNoOrigin=true
 ef.filter.csrf.targetOrigins=https://subdomain.domain.com
 ```
 
-The "https://subdomain.domain.com/" is the domain used to access your SSO.
+The "https://subdomain.domain.com/" is the domain used to access your SSO interface.
 
 Maybe you will also need to set:
 ```bash
@@ -187,7 +215,7 @@ No service restart is required.
 
 Now you have an APP and the credentials to access Entra ID Directory, so you are able to fill all replacements_custom.txt string.
 
-## (6) Mapping the users
+## (8) Mapping the users
 
 You need to create a file called ef.user.mapping that usually is stored in a path like this: /opt/nisp/enginframe/2024.0-r1705/enginframe/plugins/pam/bin/ef.user.mapping
 
